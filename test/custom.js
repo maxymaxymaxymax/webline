@@ -1,0 +1,11 @@
+const {chromium}=require('playwright');
+(async()=>{const b=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader']}); const p=await b.newPage({viewport:{width:960,height:540}});
+await p.addInitScript(()=>{localStorage.setItem('webline.settings',JSON.stringify({quality:'low'}))});
+const errs=[]; p.on('pageerror',e=>errs.push('PAGEERR '+e.message)); p.on('console',m=>{ if(m.type()==='error') errs.push(m.text().slice(0,200)); });
+await p.goto('http://localhost:8765/dev.html'); await p.waitForFunction(()=>document.getElementById('loading').classList.contains('gone'),null,{timeout:300000});
+await p.keyboard.press('Enter'); await p.waitForTimeout(800);
+await p.setInputFiles('input[type=file]', '/home/user/webline/models/civ_guard.glb'); await p.waitForTimeout(6000);
+console.log(await p.evaluate(()=>window.__eval("JSON.stringify({active:customActive, heroKey:hero.key, clips:Object.keys(hero.actions), cards:[...document.querySelectorAll('#suitsMenu .suit b')].map(b=>b.textContent), pressed:[...document.querySelectorAll('#suitsMenu .suit[aria-pressed=true] b')].map(b=>b.textContent)})")));
+await p.evaluate(()=>{window.__closeup=1; document.getElementById('menu').hidden=true;}); await p.waitForTimeout(1500);
+await p.screenshot({path:'/tmp/claude-0/-home-user/50c5464f-9282-5f08-afd6-23c5c4c5bccb/scratchpad/custom.png',timeout:180000});
+console.log(errs.filter(e=>!/GLTFLoader/.test(e)).slice(0,5).join('\n')); await b.close();})();

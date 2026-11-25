@@ -1,0 +1,43 @@
+WEBLINE - an original web-swinging game
+=======================================
+
+3D MODELS (Sketchfab, used under their licenses - attribution required)
+- "Bearded man - Low poly animated" by Agor_2012 - CC BY 4.0
+  https://sketchfab.com/3d-models/bearded-man-low-poly-animated-5718a53d18a142f686b1d9f02a637773
+- "Biker" by artrobot - CC BY-NC 4.0 (NON-COMMERCIAL ONLY - replace before selling the game)
+  https://sketchfab.com/3d-models/biker-4f4409e8093f48b599416881b44cdab6
+- "Security Guard - Rigged 3D Model" by Q.SARDOR - CC BY 4.0
+  https://sketchfab.com/3d-models/security-guard-rigged-3d-model-1e3307732bbf4453b30f021bfec5bcaf
+- ".Fuse Civilian 1" and ".Fuse Woman 1" by Leonardo Carvalho - CC BY 4.0
+  https://sketchfab.com/3d-models/fuse-civilian-1-6fc4bddf4d364e6b9fa2f050011e03ce
+  https://sketchfab.com/3d-models/fuse-woman-1-c6436897da494b4e8e1f8188aea620c6
+- "Man In Coat - Human Rigged Model" by Saitam - CC BY 4.0
+  https://sketchfab.com/3d-models/man-in-coat-human-rigged-model-cd71038373d5427099a7970f1a1af2df
+- "Girl with clothes. Worker set" by cattleya - CC BY 4.0
+  https://sketchfab.com/3d-models/girl-with-clothes-worker-set-4cf10e2dde6d4b12b6dccd25a4cf3b77
+- "Male Base Mesh (T-Pose)+(Rigged)" by Malbeasy - CC BY 4.0 (hero body)
+  https://sketchfab.com/3d-models/male-base-mesh-t-pose-rigged-5d91d2f079814476b9d471e7a09a5c39
+- "Free Low Poly Vehicles Pack" by RgsDev - CC BY 4.0
+  https://sketchfab.com/3d-models/free-low-poly-vehicles-pack-cb7640039e7a40679a53be705ebff50e
+- Xbot, Soldier and Michelle: example models from the three.js project (Mixamo characters/animations)
+  https://github.com/mrdoob/three.js
+
+SOUND EFFECTS (CC0 / public domain - attribution not required, given with thanks)
+- "Swishes Sound Pack" by artisticdude; "wind whoosh loop" by SketchMan3;
+  "High traffic road sounds" by IgnasD; "Thwack Sounds" by AntumDeluge;
+  "Metal Impact Sounds" by BMacZero; "Gunshots" by kurt;
+  "racing car engine sound loops" by domasx2; "Muffled Distant Explosion" by NenadSimic
+  (all from opengameart.org)
+- UI sounds from the uisfx library by Romain Simon (CC0)
+- Web-shot sound "LockChime" supplied by the game's author
+
+TEXTURES (CC0 / public domain)
+- Photo textures from Poly Haven (polyhaven.com): red_brick_03, concrete_wall_003, gravel_concrete_03,
+  asphalt_02, leafy_grass, sand_01, weathered_brown_planks, metal_plate
+
+MUSIC
+- Title theme: original composition, synthesized live in the browser.
+
+CODE
+- three.js r149, MIT License (see lib/THREE-LICENSE.txt)
+- Game code, city generation, suits, textures, effects: original.

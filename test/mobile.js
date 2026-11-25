@@ -1,0 +1,11 @@
+const {chromium,devices}=require('playwright');
+const out='/tmp/claude-0/-home-user/50c5464f-9282-5f08-afd6-23c5c4c5bccb/scratchpad/';
+(async()=>{const b=await chromium.launch({args:['--use-gl=angle','--use-angle=swiftshader','--ignore-gpu-blocklist']});
+const ctx=await b.newContext({viewport:{width:844,height:390},deviceScaleFactor:1,isMobile:true,hasTouch:true});
+const p=await ctx.newPage(); const errs=[]; p.on('pageerror',e=>errs.push('PAGEERR '+e.message)); p.on('console',m=>{if(m.type()==='error')errs.push(m.text().slice(0,200))});
+await p.goto('http://localhost:8765/dev.html'); await p.waitForFunction(()=>document.getElementById('loading').classList.contains('gone'),null,{timeout:300000});
+await p.waitForTimeout(1000); await p.screenshot({path:out+'m_title.png',timeout:180000});
+await p.touchscreen.tap(400,200); await p.waitForTimeout(1200); await p.screenshot({path:out+'m_menu.png',timeout:180000});
+await p.tap('#play'); await p.waitForTimeout(2500); await p.screenshot({path:out+'m_play.png',timeout:180000});
+console.log(JSON.stringify(await p.evaluate(()=>({touch:document.body.classList.contains('touch'), touchHidden:document.getElementById('touch').hidden, btns:document.querySelectorAll('.tb').length, q:JSON.parse(localStorage.getItem('webline.settings')||'{}').quality}))));
+console.log(errs.slice(0,6).join('\n')); await b.close();})();

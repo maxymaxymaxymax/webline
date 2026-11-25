@@ -1,0 +1,13 @@
+<!doctype html><html><body style="margin:0"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'; import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+THREE.ColorManagement.legacyMode=false;
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(1280,720); document.body.appendChild(r.domElement); r.outputEncoding=THREE.sRGBEncoding; r.toneMapping=THREE.ACESFilmicToneMapping;
+const s=new THREE.Scene(); s.background=new THREE.Color(0xc9b8a0); s.add(new THREE.HemisphereLight(0xffffff,0x665544,1.1)); const dl=new THREE.DirectionalLight(0xffe0b0,2); dl.position.set(3,4,2); s.add(dl);
+const g=await new GLTFLoader().loadAsync('/sk/nyc/nyc.glb'); s.add(g.scene); g.scene.updateMatrixWorld(true);
+const box=new THREE.Box3().setFromObject(g.scene); const c=box.getCenter(new THREE.Vector3()), sz=box.getSize(new THREE.Vector3());
+window.INFO={min:box.min.toArray(),max:box.max.toArray()};
+const cam=new THREE.PerspectiveCamera(50,16/9,1,20000); const v=new URLSearchParams(location.search).get('v')||'0';
+if(v==='0'){ cam.position.set(c.x+sz.x*0.6,c.y+sz.y*1.2,c.z+sz.z*0.9); } else { cam.position.set(c.x+sz.x*0.15, box.min.y+sz.y*0.08, c.z+sz.z*0.45); }
+cam.lookAt(c.x, v==='0'?c.y:box.min.y+sz.y*0.15, c.z); r.render(s,cam); document.title='done';
+</script></body></html>

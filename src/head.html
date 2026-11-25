@@ -1,0 +1,334 @@
+<title>Webline</title>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800;900&family=Archivo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: full-bleed WebGL stage; HUD pinned to the four corners; menus are one sheet over a dimmed stage */
+:root{
+  --ink:#0b0d12; --ink2:#161a23; --paper:#f7efe2; --dim:#c4bcae;
+  --sun:#ffb54a; --crimson:#ea2a3d; --sky:#8fd8ff; --ok:#86e3a0;
+  --panel:rgba(11,13,18,.74); --line:rgba(247,239,226,.18);
+  --display:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+  --body:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;background:var(--ink);color:var(--paper);overflow:hidden;font-family:var(--body);user-select:none;-webkit-user-select:none}
+[hidden]{display:none!important}
+#stage{position:fixed;inset:0}
+#stage canvas{display:block;width:100%;height:100%}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+#flash{position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(190,10,30,.6));opacity:0;transition:opacity .35s}
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .6s}
+#hud{position:fixed;inset:0;pointer-events:none;opacity:0;transition:opacity .5s}
+#hud.on{opacity:1}
+.tl{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));left:calc(22px + env(safe-area-inset-left,0px));width:290px}
+.lbl{font:700 11px/1 var(--body);letter-spacing:.18em;color:var(--dim);margin:0 0 6px;display:flex;justify-content:space-between;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.bar{height:8px;background:rgba(255,255,255,.14);clip-path:polygon(0 0,100% 0,calc(100% - 8px) 100%,0 100%);margin-bottom:12px;position:relative;overflow:hidden}
+.bar i{position:absolute;inset:0;transform-origin:left center;background:linear-gradient(90deg,var(--crimson),#ff7a5c)}
+.bar.fo i{background:linear-gradient(90deg,#ff9b2e,#ffe08a)}
+.bar.fo.full i{animation:pulse .7s infinite alternate}
+@keyframes pulse{to{filter:brightness(1.5)}}
+#odReady{color:var(--sun);opacity:0;transition:opacity .3s}
+.district{font:900 36px/.9 var(--display);letter-spacing:.02em;text-transform:uppercase;margin-top:8px;opacity:0;transform:translateY(-6px);transition:opacity .6s,transform .6s;text-shadow:0 2px 14px rgba(0,0,0,.55)}
+.district small{display:block;font:700 11px var(--body);letter-spacing:.2em;color:var(--sun);margin-bottom:4px}
+.district.show{opacity:1;transform:none}
+.tr{position:absolute;top:calc(20px + env(safe-area-inset-top,0px));right:calc(22px + env(safe-area-inset-right,0px));display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#mini{width:176px;height:176px;border-radius:50%;box-shadow:0 0 0 2px rgba(247,239,226,.28),0 10px 30px rgba(0,0,0,.45)}
+.clock{font:700 11px var(--body);letter-spacing:.18em;color:var(--dim);text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.bl{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));left:calc(22px + env(safe-area-inset-left,0px));display:flex;gap:8px}
+.abil{width:76px;height:76px;background:var(--panel);position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:8px;box-sizing:border-box;clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);overflow:hidden}
+.abil b{position:absolute;top:6px;left:9px;font:800 20px/1 var(--display);color:var(--sun)}
+.abil span{font:700 10px/1.15 var(--body);letter-spacing:.06em;text-transform:uppercase;position:relative}
+.abil em{position:absolute;inset:0;background:rgba(0,0,0,.62);transform-origin:bottom;transform:scaleY(0)}
+.abil .ct{position:absolute;top:7px;right:9px;font:800 15px/1 var(--display)}
+.abil.locked{opacity:.32}
+.abil.od{background:linear-gradient(160deg,rgba(255,181,74,.35),var(--panel))}
+.br{position:absolute;bottom:calc(22px + env(safe-area-inset-bottom,0px));right:calc(24px + env(safe-area-inset-right,0px));text-align:right}
+.speed{font:900 76px/.8 var(--display);font-variant-numeric:tabular-nums;text-shadow:0 4px 18px rgba(0,0,0,.45)}
+.speed small{font:700 13px var(--body);letter-spacing:.2em;margin-left:6px;color:var(--dim)}
+.alt{font:700 12px var(--body);letter-spacing:.16em;color:var(--dim);margin-top:10px;text-shadow:0 1px 6px rgba(0,0,0,.6)}
+.mode{display:inline-block;margin-top:10px;font:800 15px/1 var(--display);letter-spacing:.14em;padding:5px 10px 4px;background:var(--paper);color:var(--ink)}
+#cross{position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:rgba(255,255,255,.85);box-shadow:0 0 0 1.5px rgba(0,0,0,.35)}
+#tricks{position:absolute;right:calc(30px + env(safe-area-inset-right,0px));top:36%;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.tk{font:900 30px/1 var(--display);text-transform:uppercase;letter-spacing:.02em;text-shadow:0 3px 14px rgba(0,0,0,.55);animation:tk 1.7s forwards}
+.tk small{display:block;font:700 11px/1.4 var(--body);color:var(--sun);letter-spacing:.16em;text-align:right}
+.tk.big{font-size:42px;color:var(--sun)}
+@keyframes tk{0%{opacity:0;transform:translateX(34px) skewX(-10deg)}12%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
+.combo{position:absolute;right:calc(30px + env(safe-area-inset-right,0px));top:calc(36% - 70px);font:900 54px/1 var(--display);color:var(--sun);opacity:0;transition:opacity .3s;text-shadow:0 3px 18px rgba(0,0,0,.5);text-align:right}
+.combo small{display:block;font:700 11px var(--body);letter-spacing:.2em;color:var(--paper)}
+.notice{position:absolute;top:calc(52px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);background:var(--panel);border-left:4px solid var(--crimson);padding:10px 18px;font:700 13px var(--body);letter-spacing:.08em;text-transform:uppercase;opacity:0;transition:opacity .3s;white-space:nowrap}
+.notice.on{opacity:1}
+.notice.good{border-color:var(--ok)}
+.xp{position:absolute;top:calc(22px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(360px,34vw);display:flex;align-items:center;gap:10px;font:800 15px/1 var(--display);letter-spacing:.1em}
+.xp .bar{flex:1;margin:0;height:5px}
+.xp .bar i{background:var(--paper)}
+#sp{font:700 10px var(--body);color:var(--sun);white-space:nowrap;letter-spacing:.12em}
+.hint{position:absolute;bottom:calc(64px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);font:600 13px var(--body);background:var(--panel);padding:7px 14px;opacity:0;transition:opacity .3s;white-space:nowrap}
+.hint.on{opacity:1}
+.hint kbd,.keys kbd{font:700 11px var(--body);background:var(--paper);color:var(--ink);padding:2px 6px;border-radius:3px;margin:0 2px}
+.marker{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;transform:rotate(45deg);border:2px solid var(--crimson);background:rgba(234,42,61,.25)}
+.marker i{position:absolute;left:50%;top:26px;transform:rotate(-45deg) translateX(-50%);font:800 12px var(--display);font-style:normal;white-space:nowrap;color:var(--paper);text-shadow:0 1px 4px #000;transform-origin:left}
+.sheet{position:fixed;inset:0;z-index:5}
+#menu{background:linear-gradient(90deg,rgba(11,13,18,.82) 0%,rgba(11,13,18,.35) 55%,rgba(11,13,18,0) 100%);display:flex;align-items:flex-end;padding:0 max(16px,env(safe-area-inset-right,0px)) max(40px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));box-sizing:border-box}
+.menuIn{max-width:640px;margin-left:clamp(0px,4vw,60px);display:flex;flex-direction:column;gap:18px}
+.eyebrow{font:700 12px var(--body);letter-spacing:.28em;color:var(--sun);text-transform:uppercase}
+.brand{font:900 clamp(84px,15vw,200px)/.78 var(--display);letter-spacing:-.01em;margin:0;text-shadow:0 8px 40px rgba(0,0,0,.35)}
+.brand span{color:var(--crimson)}
+.tag{font:500 17px/1.5 var(--body);color:var(--dim);max-width:46ch;margin:0}
+.btn{pointer-events:auto;cursor:pointer;font:800 22px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;border:0;padding:16px 30px 14px;background:var(--paper);color:var(--ink);clip-path:polygon(12px 0,100% 0,calc(100% - 12px) 100%,0 100%);transition:background .2s,transform .2s}
+.btn:hover,.btn:focus-visible{background:var(--sun);transform:translateX(4px);outline:none}
+.btn.ghost{background:transparent;color:var(--paper);box-shadow:inset 0 0 0 2px var(--line)}
+.btn.ghost:hover,.btn.ghost:focus-visible{background:rgba(255,255,255,.08)}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px 18px;font:500 13px var(--body);color:var(--dim)}
+.keys div{display:flex;gap:8px;align-items:center}
+.keys kbd{min-width:14px;text-align:center}
+.small{font:500 12px var(--body);color:var(--dim)}
+#pause{background:rgba(8,10,14,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:flex;justify-content:center;align-items:flex-start;overflow:auto;padding:max(28px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 28px max(16px,env(safe-area-inset-left,0px));box-sizing:border-box}
+.pin{width:min(1040px,100%);display:flex;flex-direction:column;gap:20px}
+.phead{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap}
+.phead h2{font:900 56px/.85 var(--display);margin:0;text-transform:uppercase}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{pointer-events:auto;cursor:pointer;font:800 17px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;background:transparent;color:var(--dim);border:0;padding:10px 14px 8px;border-bottom:3px solid transparent}
+.tab[aria-selected="true"]{color:var(--paper);border-color:var(--crimson)}
+.tab:focus-visible{outline:2px solid var(--sun)}
+.trees{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px}
+.tree h3{font:800 20px/1 var(--display);letter-spacing:.12em;text-transform:uppercase;margin:0 0 10px;color:var(--sun)}
+.skill{pointer-events:auto;cursor:pointer;display:block;width:100%;text-align:left;background:var(--ink2);color:var(--paper);border:1px solid var(--line);padding:12px 14px;margin-bottom:8px;font:inherit;position:relative}
+.skill b{display:block;font:800 18px/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.skill span{display:block;font:400 13px/1.4 var(--body);color:var(--dim);margin-top:4px}
+.skill i{position:absolute;top:12px;right:12px;font:700 10px var(--body);letter-spacing:.14em;font-style:normal;color:var(--dim)}
+.skill.own{border-color:var(--sun);background:linear-gradient(120deg,rgba(255,181,74,.16),var(--ink2))}
+.skill.own i{color:var(--sun)}
+.skill.lock{opacity:.45;cursor:not-allowed}
+.skill:not(.own):not(.lock):hover,.skill:focus-visible{border-color:var(--paper);outline:none}
+.set{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px 28px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{display:flex;justify-content:space-between;font:700 12px var(--body);letter-spacing:.14em;text-transform:uppercase}
+.field label output{color:var(--sun);font-variant-numeric:tabular-nums}
+.field p{margin:0;font:400 12px/1.4 var(--body);color:var(--dim)}
+input[type=range]{pointer-events:auto;width:100%;accent-color:var(--crimson)}
+select,input[type=color]{pointer-events:auto;background:var(--ink2);color:var(--paper);border:1px solid var(--line);padding:6px;font:inherit}
+input[type=color]{width:56px;height:34px;padding:2px}
+.swatches{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.swatches label{display:flex;flex-direction:column;gap:4px;font:700 10px var(--body);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.pick{display:flex;flex-direction:column;gap:10px}
+.suits{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;max-width:680px}
+#suitsMenu .suit small{display:none}
+#suitsMenu .suit{padding:10px}
+#suitsMenu .suit b{font-size:16px}
+.suits.wide{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.suits.wide{max-width:none}
+.suit{pointer-events:auto;cursor:pointer;text-align:left;background:rgba(11,13,18,.62);color:var(--paper);border:1px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:6px;font:inherit;transition:border-color .2s,transform .2s;min-width:0}
+.suit:hover,.suit:focus-visible{border-color:var(--paper);outline:none;transform:translateY(-2px)}
+.suit[aria-pressed="true"]{border-color:var(--sun);background:linear-gradient(160deg,rgba(255,181,74,.18),rgba(11,13,18,.7))}
+.suit b{font:800 20px/1 var(--display);letter-spacing:.06em;text-transform:uppercase}
+.suit small{font:400 12px/1.4 var(--body);color:var(--dim)}
+.sw{display:flex;height:34px;position:relative;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%)}
+.sw i{flex:1}
+.sw i.em{position:absolute;left:50%;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;transform:rotate(45deg);box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.credits{font:400 13px/1.6 var(--body);color:var(--dim);max-width:80ch}
+.credits ul{padding-left:18px;margin:8px 0 0;display:flex;flex-direction:column;gap:6px;word-break:break-word}
+#loading{position:fixed;inset:0;z-index:9;background:radial-gradient(ellipse at 70% 30%,#3a2a20,#0b0d12 70%);display:grid;place-items:center;transition:opacity .8s}
+#loading.gone{opacity:0;pointer-events:none}
+.ldIn{display:flex;flex-direction:column;gap:16px;width:min(420px,80vw)}
+.brand.sm{font-size:clamp(60px,10vw,110px)}
+.bar.ld{height:4px;margin:0}.bar.ld i{background:linear-gradient(90deg,var(--crimson),var(--sun));transform:scaleX(.05);transition:transform .3s}
+@media (max-width:700px){.suits{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#title{display:flex;align-items:center;background:linear-gradient(90deg,rgba(40,20,10,.35),rgba(40,20,10,0) 60%);transition:opacity .45s;cursor:pointer;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));box-sizing:border-box}
+#title.out{opacity:0}
+.tIn{margin-left:clamp(0px,7vw,120px);display:flex;flex-direction:column;align-items:center;gap:14px;filter:drop-shadow(0 6px 24px rgba(60,20,0,.35))}
+.tBadge{font:900 clamp(16px,2.2vw,26px)/1 var(--display);letter-spacing:.06em;background:var(--crimson);color:#fff;padding:6px 12px 5px;border:2px solid #fff}
+.tName{font:800 clamp(80px,12.5vw,190px)/.82 var(--display);letter-spacing:.02em;color:#f4f1ec;text-shadow:5px 5px 0 #a80d22,0 0 40px rgba(255,200,140,.35)}
+.tSub{font:700 clamp(26px,3.6vw,52px)/1 var(--display);letter-spacing:.42em;color:#f4f1ec;text-shadow:3px 3px 0 #a80d22;margin-right:-.42em}
+.tPress{margin-top:22px;font:700 clamp(14px,1.3vw,18px) var(--body);letter-spacing:.14em;color:#fff;display:flex;gap:10px;align-items:center;animation:tp 1.6s ease-in-out infinite}
+.tKey{font:800 12px var(--body);border:2px solid #fff;border-radius:999px;padding:4px 10px}
+@keyframes tp{50%{opacity:.45}}
+.tFoot{position:absolute;bottom:max(18px,env(safe-area-inset-bottom,0px));left:0;right:0;text-align:center;font:500 12px var(--body);color:rgba(255,255,255,.85);text-shadow:0 1px 4px rgba(0,0,0,.6)}
+@media (prefers-reduced-motion:reduce){.tPress{animation:none}}
+.atmos{display:flex;gap:6px;flex-wrap:wrap}
+.atmo{pointer-events:auto;cursor:pointer;font:800 15px/1 var(--display);letter-spacing:.1em;text-transform:uppercase;background:rgba(11,13,18,.62);color:var(--paper);border:1px solid var(--line);padding:9px 14px 8px}
+.atmo[aria-pressed="true"]{border-color:var(--sun);background:linear-gradient(160deg,rgba(255,181,74,.2),rgba(11,13,18,.7))}
+.atmo:hover,.atmo:focus-visible{border-color:var(--paper);outline:none}
+.bossBar{position:absolute;top:calc(92px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);width:min(560px,70vw);opacity:0;transition:opacity .4s}
+.bossBar.on{opacity:1}
+.bossTop{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;text-shadow:0 2px 8px rgba(0,0,0,.7)}
+.bossTop b{font:900 28px/1 var(--display);letter-spacing:.08em}
+.bossTop span{font:600 12px var(--body);color:var(--dim);letter-spacing:.06em}
+.bar.boss{height:10px}.bar.boss i{background:linear-gradient(90deg,#8a1cff,#ea2a3d)}
+#touch{position:fixed;inset:0;z-index:4;touch-action:none;-webkit-touch-callout:none}
+.tb{position:absolute;pointer-events:auto;touch-action:none;border:2px solid rgba(255,255,255,.55);background:rgba(11,13,18,.42);color:#fff;font:800 13px/1 var(--display);letter-spacing:.08em;border-radius:50%;display:grid;place-items:center;-webkit-tap-highlight-color:transparent;user-select:none}
+.tb.big{width:70px;height:70px;font-size:14px}
+.tb{width:52px;height:52px;font-size:12px}
+.tb.sm{width:42px;height:42px;font-size:14px;border-radius:12px}
+.tb.on{background:rgba(255,181,74,.55);border-color:#fff;transform:scale(.94)}
+.b-webR{right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(98px + env(safe-area-inset-bottom,0px))}
+.b-webL{right:calc(98px + env(safe-area-inset-right,0px));bottom:calc(126px + env(safe-area-inset-bottom,0px))}
+.b-jump{right:calc(98px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px))}
+.b-dive{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.b-trick{right:calc(20px + env(safe-area-inset-right,0px));bottom:calc(184px + env(safe-area-inset-bottom,0px))}
+.b-dodge{right:calc(108px + env(safe-area-inset-right,0px));bottom:calc(210px + env(safe-area-inset-bottom,0px))}
+.b-wings{right:calc(182px + env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+.b-sling{right:calc(182px + env(safe-area-inset-right,0px));bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+.b-parry{right:calc(182px + env(safe-area-inset-right,0px));bottom:calc(148px + env(safe-area-inset-bottom,0px))}
+.b-yank{right:calc(244px + env(safe-area-inset-right,0px));bottom:calc(116px + env(safe-area-inset-bottom,0px))}
+.b-a1,.b-a2,.b-a3,.b-az{top:calc(76px + env(safe-area-inset-top,0px))}
+.b-a1{left:calc(14px + env(safe-area-inset-left,0px))}.b-a2{left:calc(62px + env(safe-area-inset-left,0px))}.b-a3{left:calc(110px + env(safe-area-inset-left,0px))}.b-az{left:calc(158px + env(safe-area-inset-left,0px))}
+.b-pause{left:calc(14px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px))}
+.stick{position:absolute;width:120px;height:120px;margin:-60px 0 0 -60px;border-radius:50%;border:2px solid rgba(255,255,255,.4);background:rgba(11,13,18,.25);opacity:0;pointer-events:none;transition:opacity .15s}
+.stick.on{opacity:1}
+.stick i{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.75)}
+body.touch .bl,body.touch .xp,body.touch .alt,body.touch #cross,body.touch .hint{display:none}
+body.touch .tl{left:calc(70px + env(safe-area-inset-left,0px));top:calc(14px + env(safe-area-inset-top,0px));width:180px}
+body.touch .br{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px));right:auto;left:50%;transform:translateX(-50%);text-align:center}
+body.touch .speed{font-size:30px}
+body.touch .mode{font-size:11px;margin-top:4px}
+body.touch #mini{width:110px;height:110px}
+body.touch .tr .clock{display:none}
+body.touch .district{font-size:22px;margin-top:62px}
+body.touch .notice{top:calc(70px + env(safe-area-inset-top,0px));font-size:11px;white-space:normal;max-width:60vw;text-align:center}
+body.touch .bossBar{top:calc(96px + env(safe-area-inset-top,0px))}
+body.touch .tk{font-size:20px}
+body.touch #tricks{top:30%}
+body.touch .menuIn .keys{display:none}
+#rotate{display:none;position:fixed;inset:0;z-index:20;background:var(--ink);flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px}
+#rotate b{font:900 34px/1 var(--display);letter-spacing:.06em}
+#rotate span{color:var(--dim)}
+@media (orientation:portrait){body.touch #rotate{display:flex}}
+#touchNote{display:none}
+
+@media (max-width:700px){.speed{font-size:52px}#mini{width:120px;height:120px}.abil{width:58px;height:58px}.abil span{display:none}.xp{display:none}.tl{width:200px}}
+@media (prefers-reduced-motion:reduce){.tk{animation-duration:1.2s}.btn{transition:none}}
+#perchMark{position:fixed;left:0;top:0;pointer-events:none;z-index:6;opacity:0;transition:opacity .12s;will-change:transform}
+#perchMark i{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2.5px solid #fff;transform:rotate(45deg);border-radius:3px;box-shadow:0 0 10px rgba(255,255,255,.7),inset 0 0 6px rgba(255,255,255,.5);animation:pmP 1s ease-in-out infinite}
+#perchMark b{position:absolute;left:16px;top:-9px;font:700 11px system-ui;color:#fff;background:rgba(0,0,0,.55);padding:1px 5px;border-radius:3px}
+@keyframes pmP{50%{transform:rotate(45deg) scale(.82)}}
+</style>
+
+<div id="stage"></div>
+<canvas id="fx"></canvas>
+<div id="flash"></div>
+<div id="hud">
+  <div class="tl">
+    <div class="lbl"><span>HEALTH</span></div><div class="bar hp"><i id="hpFill"></i></div>
+    <div class="lbl"><span>FOCUS</span><span id="odReady">OVERDRIVE · Z</span></div><div class="bar fo" id="foBar"><i id="foFill"></i></div>
+    <div id="district" class="district"><small>ENTERING</small><span id="distName">MIDTOWN</span></div>
+  </div>
+  <div class="tr"><canvas id="mini" width="352" height="352"></canvas><div class="clock">6:52 PM · GOLDEN HOUR</div></div>
+  <div class="bl">
+    <div class="abil" id="ab1"><b>1</b><i class="ct"></i><span>Mech-Arms</span><em></em></div>
+    <div class="abil" id="ab2"><b>2</b><i class="ct"></i><span>Ink Lash</span><em></em></div>
+    <div class="abil" id="ab3"><b>3</b><i class="ct"></i><span>Web Bomb</span><em></em></div>
+    <div class="abil od" id="abZ"><b>Z</b><i class="ct"></i><span>Overdrive</span><em></em></div>
+  </div>
+  <div class="br"><div class="speed"><span id="spd">0</span><small>KM/H</small></div><div class="alt"><span id="alt">0</span> M ABOVE STREET</div><div id="mode" class="mode">ROOFTOP</div></div>
+  <div id="cross"></div>
+  <div id="markers"></div>
+  <div id="combo" class="combo"></div>
+  <div id="tricks"></div>
+  <div id="notice" class="notice"></div>
+  <div id="bossBar" class="bossBar"><div class="bossTop"><b id="bossName"></b><span id="bossTitle"></span></div><div class="bar boss"><i id="bossFill"></i></div></div>
+  <div class="xp"><span id="lvl">LV 1</span><div class="bar"><i id="xpFill"></i></div><span id="sp"></span></div>
+  <div id="hint" class="hint"></div>
+</div>
+
+<div id="title" class="sheet" hidden>
+  <div class="tIn">
+    <div class="tBadge">NEW HARBOR</div>
+    <div class="tName">WEBLINE</div>
+    <div class="tSub">GOLDEN HOUR</div>
+    <div class="tPress"><span class="tKey">ANY KEY</span> PRESS TO START</div>
+  </div>
+  <div class="tFoot">An original web-swinging game · models, sounds and music credited in Pause → Credits</div>
+</div>
+<div id="menu" class="sheet">
+  <div class="menuIn">
+    <div class="eyebrow clock">6:52 PM · GOLDEN HOUR</div>
+    <h1 class="brand">WEB<span>LINE</span></h1>
+    <p class="tag">Four boroughs of glass and brick, a sun sitting low over the harbor, and two wrists full of web. Swing it, glide it, slingshot it, and keep the streets clean.</p>
+    <div class="pick"><div class="eyebrow">Time of day</div><div class="atmos"></div></div>
+    <div class="pick"><div class="eyebrow">Choose your suit</div><div class="suits" id="suitsMenu"></div></div>
+    <div class="row"><button class="btn" id="play">Swing in</button><button class="btn ghost" id="openSet">Controls</button></div>
+    <div class="keys" id="menuSet" hidden>
+      <div><kbd>LMB</kbd> Left-hand web</div><div><kbd>RMB</kbd> Right-hand web</div>
+      <div><kbd>Space</kbd> Jump · Web Zip in air</div><div><kbd>R</kbd> Zip to ◇ perch point</div><div><kbd>Shift</kbd> on a wall: Wall Run</div><div><kbd>G</kbd> Web-Wings</div>
+      <div><kbd>F</kbd> Hold for Slingshot</div><div><kbd>Shift</kbd> Sprint · Dive · Loop</div>
+      <div><kbd>E</kbd> Air trick (+WASD)</div><div><kbd>Q</kbd> Parry · <kbd>C</kbd> Dodge</div>
+      <div><kbd>T</kbd> Web-Yank</div><div><kbd>1 2 3 Z</kbd> Abilities</div>
+    </div>
+    <p class="small" id="touchNote">Webline needs a mouse and keyboard.</p>
+  </div>
+</div>
+
+<div id="pause" class="sheet" hidden>
+  <div class="pin">
+    <div class="phead">
+      <h2 id="pTitle">Paused</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="suits" aria-selected="true">Suits</button>
+        <button class="tab" role="tab" data-tab="skills" aria-selected="false">Skills</button>
+        <button class="tab" role="tab" data-tab="settings" aria-selected="false">Settings</button>
+        <button class="tab" role="tab" data-tab="controls" aria-selected="false">Controls</button>
+        <button class="tab" role="tab" data-tab="credits" aria-selected="false">Credits</button>
+      </div>
+    </div>
+    <section id="tab-suits"><div class="suits wide" id="suitsPause"></div></section>
+    <section id="tab-skills" hidden><p class="small" id="spLine"></p><div class="trees" id="trees"></div></section>
+    <section id="tab-settings" hidden>
+      <div class="set">
+        <div class="field"><label for="sAssist">Swing assist <output id="oAssist"></output></label><input type="range" id="sAssist" min="0" max="100"><p>How tightly swings are handled: anchor search, pump strength, ground clearance, and glancing off walls instead of sticking. Above 60, webs can catch the sky when no building is in reach.</p></div>
+        <div class="field"><label for="sFall">Fall damage <output id="oFall"></output></label><input type="range" id="sFall" min="0" max="100"><p>0 turns it off. At 100, landing hard from a long fall hurts a lot.</p></div>
+        <div class="field"><label for="sSens">Mouse sensitivity <output id="oSens"></output></label><input type="range" id="sSens" min="5" max="100"></div>
+        <div class="field"><label for="sFov">Field of view <output id="oFov"></output></label><input type="range" id="sFov" min="55" max="95"></div>
+        <div class="field"><label for="sVol">Volume <output id="oVol"></output></label><input type="range" id="sVol" min="0" max="100"></div>
+        <div class="field"><label for="sScale">Render scale <output id="oScale"></output></label><input type="range" id="sScale" min="50" max="150" step="5"><p>Percent of your screen's resolution. Higher is sharper but slower.</p></div>
+        <div class="field"><label for="sAuto">Auto resolution</label><select id="sAuto"><option value="1">On · lowers resolution when FPS drops</option><option value="0">Off · always use render scale</option></select></div>
+        <div class="field"><label for="sAtmo">Time of day</label><select id="sAtmo"><option value="morning">Morning · bright blue sky</option><option value="golden">Golden Hour</option><option value="evening">Evening · purple sky</option><option value="night">Night · lit windows</option></select></div>
+        <div class="field"><label for="sQual">Graphics</label><select id="sQual"><option value="ultra">Ultra · RTX-class GPUs (sharpest, 8× AA, 4K shadows)</option><option value="high">High · soft shadows</option><option value="medium">Medium</option><option value="low">Low · no shadows</option></select></div>
+        <div class="field"><label>Suit colors</label><div class="swatches"><label for="cA">Primary<input type="color" id="cA"></label><label for="cB">Secondary<input type="color" id="cB"></label><label for="cL">Lenses<input type="color" id="cL"></label><button class="btn ghost" id="cReset" style="font-size:14px;padding:10px 16px 8px">Reset</button></div></div>
+        <div class="field"><label for="sInv">Invert look</label><select id="sInv"><option value="0">Off</option><option value="1">On</option></select></div>
+      </div>
+    </section>
+    <section id="tab-controls" hidden>
+      <div class="keys" style="font-size:14px">
+        <div><kbd>W A S D</kbd> Move · wall-run</div><div><kbd>Mouse</kbd> Look</div>
+        <div><kbd>LMB</kbd> Left-hand web (hold)</div><div><kbd>RMB</kbd> Right-hand web (hold)</div>
+        <div><kbd>Space</kbd> Jump (hold to charge)</div><div><kbd>Space</kbd> in air: Web Zip</div><div><kbd>R</kbd> Zip to the ◇ perch marker</div><div><kbd>Shift</kbd> on a wall: Wall Run</div><div>Hit a weakened or webbed thug: Finisher</div>
+        <div><kbd>Shift</kbd> Sprint · dive in air</div><div><kbd>Shift</kbd> while swinging fast: loop-the-loop</div>
+        <div><kbd>G</kbd> Deploy / fold Web-Wings</div><div><kbd>F</kbd> Hold and release: Slingshot</div>
+        <div><kbd>E</kbd> Air trick, add W/A/S/D for flips and rolls</div><div><kbd>LMB</kbd> near thugs on foot: strike combo</div>
+        <div><kbd>RMB</kbd> near thugs on foot: web shot</div><div><kbd>Q</kbd> Parry (yellow ring, or perfect-time red)</div>
+        <div><kbd>C</kbd> Dodge</div><div><kbd>T</kbd> Web-Yank, with A/D to slam sideways</div>
+        <div><kbd>1</kbd> Mech-Arms</div><div><kbd>2</kbd> Ink Lash</div>
+        <div><kbd>3</kbd> Web Bomb</div><div><kbd>Z</kbd> Overdrive (full focus)</div>
+        <div><kbd>Tab</kbd> / <kbd>Esc</kbd> Pause, skills, settings</div>
+      </div>
+    </section>
+    <section id="tab-credits" hidden><div class="credits">
+      <p>Webline is an original game. Characters are free models used under their Sketchfab licenses (CC Attribution unless noted), retargeted onto shared animations.</p>
+      <ul>
+        <li>"Bearded man - Low poly animated" by Agor_2012 · CC BY 4.0 · sketchfab.com/3d-models/bearded-man-low-poly-animated-5718a53d18a142f686b1d9f02a637773</li>
+        <li>"Biker" by artrobot · CC BY-NC 4.0 · sketchfab.com/3d-models/biker-4f4409e8093f48b599416881b44cdab6</li>
+        <li>"Security Guard – Rigged 3D Model" by Q.SARDOR · CC BY 4.0 · sketchfab.com/3d-models/security-guard-rigged-3d-model-1e3307732bbf4453b30f021bfec5bcaf</li>
+        <li>".Fuse Civilian 1" by Leonardo Carvalho · CC BY 4.0 · sketchfab.com/3d-models/fuse-civilian-1-6fc4bddf4d364e6b9fa2f050011e03ce</li>
+        <li>".Fuse Woman 1" by Leonardo Carvalho · CC BY 4.0 · sketchfab.com/3d-models/fuse-woman-1-c6436897da494b4e8e1f8188aea620c6</li>
+        <li>"Man In Coat - Human Rigged Model" by Saitam · CC BY 4.0 · sketchfab.com/3d-models/man-in-coat-human-rigged-model-cd71038373d5427099a7970f1a1af2df</li>
+        <li>"Girl with clothes. Worker set" by cattleya · CC BY 4.0 · sketchfab.com/3d-models/girl-with-clothes-worker-set-4cf10e2dde6d4b12b6dccd25a4cf3b77</li>
+        <li>"Male Base Mesh (T-Pose)+(Rigged)" by Malbeasy · CC BY 4.0 · hero body · sketchfab.com/3d-models/male-base-mesh-t-pose-rigged-5d91d2f079814476b9d471e7a09a5c39</li>
+        <li>Xbot, Soldier and Michelle: three.js example models (Mixamo) · github.com/mrdoob/three.js</li>
+        <li>"Free Low Poly Vehicles Pack" by RgsDev · CC BY 4.0 · sketchfab.com/3d-models/free-low-poly-vehicles-pack-cb7640039e7a40679a53be705ebff50e</li>
+        <li>Sound effects (all CC0, public domain): "Swishes Sound Pack" by artisticdude, "wind whoosh loop" by SketchMan3, "High traffic road sounds" by IgnasD, "Thwack Sounds" by AntumDeluge, "Metal Impact Sounds" by BMacZero, "Gunshots" by kurt, "racing car engine sound loops" by domasx2, "Muffled Distant Explosion" by NenadSimic (all from opengameart.org), and UI sounds from the uisfx library by Romain Simon.</li>
+        <li>Web shot sound: "LockChime", supplied by the player. Title music: an original cue synthesized live in the browser.</li>
+        <li>Buildings (simplified for the web): “Detailed Old NYC Building” by 99.Miles (CC Attribution) — sketchfab.com/3d-models/258cac58409b400ba4379222ebddf4f5 · “City Brownstone Building” by dhiren-sah (CC Attribution) — sketchfab.com/3d-models/69f682e9b7f44b098439abf1264a6dec · “NYC apartment with fire escape” by Ashley (CC Attribution) — sketchfab.com/3d-models/c1641aec68e14d4ca51c16707e0e9884 · “Manhattan modular building” by German.avi (CC Attribution) — sketchfab.com/3d-models/9e1415eced744058b02292bfea053023 · “New York styled hi rise apartment building” by aitortilla01 (CC Attribution) — sketchfab.com/3d-models/14e3d5743f7546d5bb7f3befc72c9057 · “New York Background Building 1#” by carlcapu9 (CC Attribution) — sketchfab.com/3d-models/85bb3befb9db491fa2e834534ac093c4 · “New York Annex Building” by novusod (CC Attribution) — sketchfab.com/3d-models/73c77981dbe94dea95d9ba8de42b900e · “Chrysler Building” by NanoRay (CC Attribution) — sketchfab.com/3d-models/26be9287b12d4234af009e4162135897 · “270 Park Avenue” by NanoRay (CC Attribution) — sketchfab.com/3d-models/60dee9e4d2564a12a59a009adfb37d7b · “432 Park Avenue” by NanoRay (CC Attribution) — sketchfab.com/3d-models/d1071ed9bd9549a5a03c83b72fbaffd1 · “Tower Fifth” by NanoRay (CC Attribution) — sketchfab.com/3d-models/3bcff2746b5a41058b858c65ed82de66 · “Whitehall Building” by novusod (CC Attribution) — sketchfab.com/3d-models/d0db0e12b3484594a1c9eb35186b7c0f · “Central Park Tower” by NanoRay (CC Attribution) — sketchfab.com/3d-models/53c2458a58104c708390149fc942b03a</li>
+        <li>Street props and pedestrian pack supplied by the project author.</li>
+        <li>Photo textures (CC0, public domain) from Poly Haven: red_brick_03, concrete_wall_003, gravel_concrete_03, asphalt_02, leafy_grass, sand_01, weathered_brown_planks, metal_plate · polyhaven.com</li>
+        <li>Engine: three.js r149 (MIT). City, suits, sound and effects are procedural.</li>
+      </ul></div></section>
+    <div class="row"><button class="btn" id="resume">Resume</button><button class="btn ghost" id="respawnBtn">Return to rooftop</button></div>
+  </div>
+</div>
+<div id="touch" hidden></div>
+<div id="rotate"><b>Turn your phone sideways</b><span>Webline plays in landscape.</span></div>
+<div id="fade"></div>
+<div id="loading"><div class="ldIn"><div class="brand sm">WEB<span>LINE</span></div><div class="bar ld"><i id="loadFill"></i></div><div class="small" id="loadTxt">Raising the skyline</div></div></div><script>if(location.protocol==='file:'){document.addEventListener('DOMContentLoaded',()=>{const t=document.getElementById('loadTxt');t.innerHTML='Can\'t start from a double-clicked file.<br>Close this and double-click <b>PLAY.bat</b> (Windows) or <b>PLAY.command</b> (Mac) in the game folder.';t.style.maxWidth='420px';t.style.lineHeight='1.5';});}</script>

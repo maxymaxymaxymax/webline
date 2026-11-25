@@ -1,0 +1,126 @@
+<!doctype html><html><body style="margin:0"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script><script>window.MODEL_BASE="/models/"</script><script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+THREE.ColorManagement.legacyMode = false;
+const V3 = THREE.Vector3, Qt = THREE.Quaternion;
+const UP = new V3(0,1,0);
+// ================= RIGGED CHARACTERS =================
+const gltfLoader = new GLTFLoader();
+const normBone = n => n.replace(/^mixamorig\d*:?/i, '').replace(/^girlBone_/, '').replace(/_\d+$/, '');
+const CHAR_DEFS = {
+  hero: { file: 'hero', yaw: 0, h: 1.82 },
+  soldier: { file: 'Soldier', yaw: Math.PI, h: 1.8 },
+  dancer: { file: 'Michelle', yaw: 0, h: 1.68 },
+  bearded: { file: 'thug_bearded', yaw: 0, h: 1.84 },
+  biker: { file: 'thug_biker', yaw: 0, h: 1.86 },
+  guard: { file: 'civ_guard', yaw: 0, h: 1.8 },
+  man: { file: 'civ_man', yaw: 0, h: 1.78 },
+  woman: { file: 'civ_woman', yaw: 0, h: 1.68 },
+  coat: { file: 'civ_coat', yaw: 0, h: 1.8 },
+  worker: { file: 'civ_worker', yaw: 0, h: 1.66 },
+  ...(window.HERO_TEST ? { hb1: { file: 'hb1', yaw: 0, h: 1.82 }, hb2: { file: 'hb2', yaw: 0, h: 1.82 }, hb3: { file: 'hb3', yaw: 0, h: 1.82 } } : {}),
+};
+const CHARS = {};
+const _qi = new Qt(), _qr = new Qt();
+async function loadChar(key, onProgress) {
+  const def = CHAR_DEFS[key];
+  const g = await gltfLoader.loadAsync((window.MODEL_BASE||'models/') + def.file + '.glb', onProgress);
+  const root = g.scene; root.updateMatrixWorld(true);
+  let skinned = []; root.traverse(o => { if (o.isSkinnedMesh) skinned.push(o); if (o.isMesh) { o.frustumCulled = false; o.castShadow = true; o.receiveShadow = true; } });
+  const bones = {}; skinned[0].skeleton.bones.forEach(b => { const n = normBone(b.name); if (!bones[n]) bones[n] = b; });
+  root.traverse(o => { if (o.isBone) { const n = normBone(o.name); if (!bones[n]) bones[n] = o; } });
+  const wp = new V3(); bones.Head.getWorldPosition(wp); const headY = wp.y;
+  let footY = Infinity; for (const n of ['LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase']) if (bones[n]) { bones[n].getWorldPosition(wp); footY = Math.min(footY, wp.y); }
+  const rawH = (headY - footY) * 1.13; const scale = def.h / rawH;
+  const rest = {}; for (const n in bones) rest[n] = bones[n].quaternion.clone();
+  const C = { key, def, gltf: g, root, bones, rest, scale, footY, clips: {} };
+  for (const clip of g.animations) C.clips[clip.name] = cleanClip(clip, C, true);
+  CHARS[key] = C; return C;
+}
+function cleanClip(clip, C, own) {
+  const tracks = [];
+  for (const t of clip.tracks) {
+    const [node, prop] = t.name.split('.'); const n = normBone(node);
+    if (prop === 'quaternion') tracks.push(t);
+    else if (prop === 'position' && n === 'Hips' && own) {
+      const v = t.values.slice(); const r = C.bones.Hips.position;
+      for (let i = 0; i < v.length; i += 3) { v[i] = r.x; v[i + 2] = r.z; }
+      tracks.push(new THREE.VectorKeyframeTrack(t.name, t.times, v));
+    }
+  }
+  return new THREE.AnimationClip(clip.name, clip.duration, tracks);
+}
+function modelQuats(C, out) { // world quats (template root sits at identity)
+  C.root.updateMatrixWorld(true);
+  for (const n in C.bones) { (out[n] || (out[n] = new Qt())); C.bones[n].getWorldQuaternion(out[n]); }
+  return out;
+}
+function retarget(srcKey, clipName, dstKey, newName, fps = 30) {
+  const src = CHARS[srcKey], dst = CHARS[dstKey]; const clip = src.clips[clipName]; if (!clip) return null;
+  for (const n in src.bones) src.bones[n].quaternion.copy(src.rest[n]);
+  for (const n in dst.bones) dst.bones[n].quaternion.copy(dst.rest[n]);
+  const Gs = modelQuats(src, {}), Gt = modelQuats(dst, {});
+  const yS = new Qt().setFromAxisAngle(UP, src.def.yaw), yT = new Qt().setFromAxisAngle(UP, dst.def.yaw), yTi = yT.clone().invert(), ySi = yS.clone().invert();
+  const order = []; dst.root.traverse(o => { if (o.isBone) { const n = normBone(o.name); if (dst.bones[n] === o && src.bones[n]) order.push(n); } });
+  const parentRest = {}; for (const n of order) { const p = dst.bones[n].parent; parentRest[n] = p.getWorldQuaternion(new Qt()); }
+  const mixer = new THREE.AnimationMixer(src.root); const act = mixer.clipAction(clip); act.play();
+  const frames = Math.max(2, Math.ceil(clip.duration * fps) + 1); const times = new Float32Array(frames);
+  const vals = {}; for (const n of order) vals[n] = new Float32Array(frames * 4);
+  const Ws = {}, Wt = {}; const q = new Qt(), gi = new Qt(), pq = new Qt();
+  for (let f = 0; f < frames; f++) {
+    const t = Math.min(clip.duration, f / fps); times[f] = t; mixer.setTime(t); modelQuats(src, Ws);
+    for (const n of order) {
+      gi.copy(Gs[n]).invert();
+      q.copy(Ws[n]).multiply(gi); q.premultiply(yS).multiply(ySi); // world delta in source facing frame
+      q.premultiply(yTi).multiply(yT);
+      (Wt[n] || (Wt[n] = new Qt())).copy(q).multiply(Gt[n]);
+      const pn = normBone(dst.bones[n].parent.name || ''); const pW = (dst.bones[pn] === dst.bones[n].parent && Wt[pn]) ? Wt[pn] : parentRest[n];
+      pq.copy(pW).invert().multiply(Wt[n]); pq.toArray(vals[n], f * 4);
+    }
+  }
+  act.stop(); mixer.uncacheRoot(src.root);
+  for (const n in src.bones) src.bones[n].quaternion.copy(src.rest[n]);
+  const tracks = order.map(n => new THREE.QuaternionKeyframeTrack(dst.bones[n].name + '.quaternion', times, vals[n]));
+  const c = new THREE.AnimationClip(newName || clipName, clip.duration, tracks);
+  dst.clips[newName || clipName] = c; return c;
+}
+// An instance: outer group (world placement, yaw) > inner (scale/feet/yaw fix) > cloned scene
+function makeInstance(key) {
+  const C = CHARS[key]; const model = SkeletonUtils.clone(C.root);
+  const inner = new THREE.Group(); inner.add(model); inner.scale.setScalar(C.scale); inner.position.y = -C.footY * C.scale; inner.rotation.y = C.def.yaw;
+  const outer = new THREE.Group(); outer.add(inner);
+  const bones = {}; model.traverse(o => { if (o.isBone) { const n = normBone(o.name); if (!bones[n]) bones[n] = o; } if (o.isMesh) { o.frustumCulled = false; } });
+  const mixer = new THREE.AnimationMixer(model); const actions = {};
+  for (const name in C.clips) actions[name] = mixer.clipAction(C.clips[name]);
+  return { key, C, group: outer, inner, model, bones, mixer, actions, cur: null };
+}
+function playAct(inst, name, fade = 0.25, opts = {}) {
+  const a = inst.actions[name]; if (!a) return null;
+  if (inst.cur === a && !opts.restart) return a;
+  a.enabled = true; a.setEffectiveWeight(1); a.setEffectiveTimeScale(opts.speed || 1);
+  if (opts.once) { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = true; } else a.setLoop(THREE.LoopRepeat, Infinity);
+  if (opts.restart || !a.isRunning()) a.reset();
+  if (inst.cur && inst.cur !== a) a.crossFadeFrom(inst.cur, fade, false); else a.fadeIn(fade);
+  a.play(); inst.cur = a; return a;
+}
+async function loadAllChars(progress) {
+  const keys = Object.keys(CHAR_DEFS); let done = 0;
+  await Promise.all(keys.map(k => loadChar(k).then(() => { done++; progress && progress(done / keys.length); })));
+  // shared locomotion: hero (Xbot) clips are the source for everyone lacking them
+  for (const k of ['guard', 'man', 'woman', 'coat', 'worker', 'dancer']) { retarget('hero', 'walk', k, 'walk'); retarget('hero', 'run', k, 'run'); retarget('hero', 'agree', k, 'cheer'); if (k !== 'guard' && k !== 'worker') retarget('hero', 'idle', k, 'idle'); }
+  retarget('dancer', 'SambaDance', 'man', 'dance'); retarget('dancer', 'SambaDance', 'woman', 'dance'); retarget('dancer', 'SambaDance', 'coat', 'dance');
+  CHARS.dancer.clips.dance = CHARS.dancer.clips.SambaDance; CHARS.dancer.clips.idle = CHARS.dancer.clips.idle || CHARS.dancer.clips.TPose;
+  for (const n of ['idle', 'run', 'fight_idle', 'death', 'fight']) retarget('bearded', n, 'biker', n === 'fight' ? 'fight2' : n);
+  CHARS.biker.clips.walk = CHARS.biker.clips.biker_walking; CHARS.biker.clips.fight = CHARS.biker.clips.biker_boxing;
+  for (const n of ['fight_idle', 'fight', 'death']) retarget('bearded', n, 'soldier', n);
+  CHARS.soldier.clips.idle = CHARS.soldier.clips.Idle; CHARS.soldier.clips.walk = CHARS.soldier.clips.Walk; CHARS.soldier.clips.run = CHARS.soldier.clips.Run;
+  retarget('bearded', 'fight_idle', 'hero', 'fight_idle');
+  for (const k of ['hb1', 'hb2', 'hb3']) if (CHARS[k]) retarget('hero', 'idle', k, 'idle');
+}
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(1200,600); document.body.appendChild(r.domElement); r.outputEncoding=THREE.sRGBEncoding;
+const s=new THREE.Scene(); s.background=new THREE.Color(0x8899aa); s.add(new THREE.HemisphereLight(0xffffff,0x444444,1.2)); const dl=new THREE.DirectionalLight(0xffffff,1.6); dl.position.set(1,2,3); s.add(dl);
+const cam=new THREE.PerspectiveCamera(30,2,0.1,100); cam.position.set(3,1.1,7); cam.lookAt(3,0.95,0);
+for(const k of ['hb1','hb2','hb3']) CHAR_DEFS[k]={file:k,yaw:0,h:1.82}; await loadAllChars(); for(const k of ['hb1','hb2','hb3']) retarget('hero','idle',k,'idle'); ['hero','hb1','hb2','hb3'].forEach((k,i)=>{const it=makeInstance(k); it.group.position.set(i*2,0,0); s.add(it.group); playAct(it,'idle',0); for(let j=0;j<10;j++) it.mixer.update(0.05);});
+r.render(s,cam); document.title='done';
+</script></body></html>

@@ -1,0 +1,1 @@
+{ echo '<!doctype html><html><body style="margin:0"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script><script>window.MODEL_BASE="/models/"</script><script type="module">'; cat test/prelude.js src/chars.js test/chartest_body.js; echo '</script></body></html>'; } > test/chars.html

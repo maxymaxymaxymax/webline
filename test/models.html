@@ -1,0 +1,20 @@
+<!doctype html><html><body style="margin:0"><script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three'; import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+const names=['hero','Soldier','Michelle','thug_bearded','thug_biker','civ_guard','civ_man','civ_woman','civ_coat','civ_worker'];
+const r=new THREE.WebGLRenderer({antialias:true}); r.setSize(1600,600); document.body.appendChild(r.domElement); r.outputEncoding=THREE.sRGBEncoding;
+const s=new THREE.Scene(); s.background=new THREE.Color(0x888888); s.add(new THREE.HemisphereLight(0xffffff,0x444444,1.5)); const dl=new THREE.DirectionalLight(0xffffff,1.5); dl.position.set(1,2,3); s.add(dl);
+const cam=new THREE.PerspectiveCamera(30,1600/600,0.1,100); cam.position.set(9,1.2,14); cam.lookAt(9,0.9,0);
+const L=new GLTFLoader(); const out=[];
+for(let i=0;i<names.length;i++){ const g=await L.loadAsync('/models/'+names[i]+'.glb'); const o=g.scene; o.updateMatrixWorld(true);
+ const b=new THREE.Box3().setFromObject(o); const sz=b.getSize(new THREE.Vector3());
+ let sk=null; o.traverse(c=>{if(c.isSkinnedMesh&&!sk)sk=c;});
+ const bn=sk.skeleton.bones.map(b=>b.name); const hipsI=bn.findIndex(n=>/Hips/.test(n)); const hips=sk.skeleton.bones[hipsI];
+ const hp=new THREE.Vector3(); hips.getWorldPosition(hp);
+ const lh=sk.skeleton.bones.find(b=>/LeftHand$|LeftHand_\d+$/.test(b.name)); const lhp=new THREE.Vector3(); if(lh) lh.getWorldPosition(lhp);
+ const head=sk.skeleton.bones.find(b=>/Head(_\d+)?$/.test(b.name)); const hdp=new THREE.Vector3(); head.getWorldPosition(hdp);
+ const sc=1.8/sz.y; o.scale.multiplyScalar(sc); o.position.set(i*2-b.min.x*0, -b.min.y*sc,0); s.add(o);
+ out.push({n:names[i],size:sz.toArray().map(v=>+v.toFixed(2)),min:b.min.toArray().map(v=>+v.toFixed(2)),hips:hips.name,hipsPos:hp.toArray().map(v=>+v.toFixed(2)),lhand:lhp.toArray().map(v=>+v.toFixed(2)),head:hdp.toArray().map(v=>+v.toFixed(2)),anims:g.animations.map(a=>a.name+':'+a.duration.toFixed(1)),meshes:(()=>{let n=0;o.traverse(c=>{if(c.isMesh)n++});return n})(),mats:(()=>{const m=new Set();o.traverse(c=>{if(c.isMesh)m.add(c.material.name+(c.material.map?'[tex]':''))});return [...m].slice(0,5)})()});
+}
+r.render(s,cam); window.RESULT=out; document.title='done';
+</script></body></html>
